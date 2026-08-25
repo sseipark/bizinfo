@@ -35,7 +35,7 @@
       const bizNo = document.getElementById('bizNo').value.trim();
       if (!bizNo) return alert('사업자번호를 입력하세요.');
 
-      const GAS_URL = 'https://script.google.com/macros/s/AKfycbzE7hdDw0CeKxykGpj0Vad3pwOF3AK8Xo2_D_J6wgO2Br4Z-ZvcVJqB1ycDWFO30niv/exec';
+      const GAS_URL = 'https://script.google.com/macros/s/AKfycbxoAWbl-donyMA7-CRJxGoBbFIxmzNrzV4W1eVCu_jMPhd6vctEbLM3vwP3qgET62b6/exec';
 
       try {
         const response = await fetch(`${GAS_URL}?bizNo=${bizNo}`);
