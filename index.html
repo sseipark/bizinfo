@@ -1,62 +1,86 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>사업자 정보 무료 조회</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: 0 auto; }
-    .search-box { display: flex; gap: 8px; margin-bottom: 20px; }
-    input { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
-    button { padding: 10px 16px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-    .result-card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; display: none; background-color: #f9f9f9; }
-    .row { margin-bottom: 10px; }
-    .label { font-weight: bold; width: 100px; display: inline-block; color: #555; }
-  </style>
-</head>
-<body>
+function doGet(e) {
+  const bizNo = e ? e.parameter.bizNo : null;
 
-  <h2>사업자 정보 조회</h2>
-  <div class="search-box">
-    <input type="text" id="bizNo" placeholder="사업자번호 10자리 (- 제외)">
-    <button onclick="search()">조회</button>
-  </div>
+  if (!bizNo) {
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: false, 
+      message: '사업자번호가 입력되지 않았습니다.' 
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 
-  <div id="result" class="result-card">
-    <div class="row"><span class="label">상호명:</span> <span id="companyName"></span></div>
-    <div class="row"><span class="label">대표자명:</span> <span id="bossName"></span></div>
-    <div class="row"><span class="label">주소:</span> <span id="address"></span></div>
-    <div class="row"><span class="label">사이트주소:</span> <span id="domain"></span></div>
-    <div class="row"><span class="label">상태:</span> <span id="status"></span></div>
-  </div>
+  // ★ 공공데이터포럼 [일반 인증키 (Encoding)]를 넣어주세요.
+  const serviceKey = 'j2Xiwd8pmeCoYsplDtmd91WOD3hQIVZaC3%2BcxhVSl%2FcTIrOs8TrROcOy3kTt4JN...';
 
-  <script>
-    async function search() {
-      const bizNo = document.getElementById('bizNo').value.trim();
-      if (!bizNo) return alert('사업자번호를 입력하세요.');
+  // 정확하게 확인된 MllBsDtl_3Service 엔드포인트 URL
+  const url = `https://apis.data.go.kr/1130000/MllBsDtl_3Service/getMllBsDtlItem_3?serviceKey=${serviceKey}&brno=${bizNo}&resultType=json`;
 
-      const GAS_URL = 'https://script.google.com/macros/s/AKfycbxoAWbl-donyMA7-CRJxGoBbFIxmzNrzV4W1eVCu_jMPhd6vctEbLM3vwP3qgET62b6/exec';
+  try {
+    const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    const responseText = response.getContentText();
 
-      try {
-        const response = await fetch(`${GAS_URL}?bizNo=${bizNo}`);
-        const data = await response.json();
+    let json;
+    try {
+      json = JSON.parse(responseText);
+    } catch (pErr) {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        success: false, 
+        message: '공공데이터 응답 에러 (XML 반환됨): ' + responseText 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
 
-        if (data.success) {
-          document.getElementById('companyName').innerText = data.companyName;
-          document.getElementById('bossName').innerText = data.bossName;
-          document.getElementById('address').innerText = data.address;
-          document.getElementById('domain').innerText = data.domain;
-          document.getElementById('status').innerText = data.status;
-          document.getElementById('result').style.display = 'block';
-        } else {
-          alert(data.message);
-          document.getElementById('result').style.display = 'none';
-        }
-      } catch (error) {
-        alert('조회 중 오류가 발생했습니다.');
-        console.error(error);
+    // 공공데이터 API 자체 에러 처리 (OpenAPI_ServiceResponse 등)
+    if (json.OpenAPI_ServiceResponse) {
+      const errMsg = json.OpenAPI_ServiceResponse.cmmMsgHeader ? json.OpenAPI_ServiceResponse.cmmMsgHeader.errMsg : '서비스 에러';
+      return ContentService.createTextOutput(JSON.stringify({ 
+        success: false, 
+        message: `공공데이터 인증/요청 오류: ${errMsg}` 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (json.header && json.header.resultCode !== '00') {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        success: false, 
+        message: `API 에러 [${json.header.resultCode}]: ${json.header.resultMsg}` 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 응답 데이터에서 개별 item 추출 (배열 및 단일 객체 형태 자동 대응)
+    let item = null;
+    if (json.items) {
+      item = Array.isArray(json.items) ? json.items[0] : json.items;
+    } else if (json.response && json.response.body && json.response.body.items) {
+      const rawItems = json.response.body.items;
+      if (Array.isArray(rawItems)) {
+        item = rawItems[0];
+      } else if (rawItems.item) {
+        item = Array.isArray(rawItems.item) ? rawItems.item[0] : rawItems.item;
+      } else {
+        item = rawItems;
       }
     }
-  </script>
-</body>
-</html>
+
+    if (item) {
+      const resultData = {
+        success: true,
+        companyName: item.cmpnmNm || item.cmpnm || '정보 없음',
+        bossName: item.reprstvnNm || item.bossNm || '정보 없음',
+        address: item.rnAddr || item.lnoAddr || '정보 없음',
+        domain: item.domnNm || '정보 없음',
+        status: item.prmsnSttsNm || item.stts || '정상'
+      };
+      return ContentService.createTextOutput(JSON.stringify(resultData))
+        .setMimeType(ContentService.MimeType.JSON);
+    } else {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        success: false, 
+        message: '조회된 사업자 정보가 없습니다.' 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: false, 
+      message: '스크립트 실행 오류: ' + err.toString() 
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
