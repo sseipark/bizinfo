@@ -36,7 +36,7 @@
       if (!bizNo) return alert('사업자번호를 입력하세요.');
 
       // Google Apps Script 최신 웹앱 실행 URL
-      const GAS_URL = 'https://script.google.com/macros/s/AKfycbzs25JoTukGyw4rXBsxQYPF0SPGfSrYLFbO7d2mMQK4JZizv5bFly5IM1GPNHKuKp44/exec';
+      const GAS_URL = 'https://script.google.com/macros/s/AKfycbxoAWbl-donyMA7-CRJxGoBbFlxmzNrzV4W1eVCu_jMPHd6vctEbLM3vwP3qqET62b6/exec';
 
       try {
         const response = await fetch(`${GAS_URL}?bizNo=${bizNo}`);
