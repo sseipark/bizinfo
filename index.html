@@ -35,11 +35,20 @@
       const bizNo = document.getElementById('bizNo').value.trim();
       if (!bizNo) return alert('사업자번호를 입력하세요.');
 
-      // Google Apps Script 최신 웹앱 실행 URL
+      // 버전 12 최신 GAS 웹앱 URL
       const GAS_URL = 'https://script.google.com/macros/s/AKfycbxoAWbl-donyMA7-CRJxGoBbFlxmzNrzV4W1eVCu_jMPHd6vctEbLM3vwP3qqET62b6/exec';
 
       try {
-        const response = await fetch(`${GAS_URL}?bizNo=${bizNo}`);
+        // redirect: 'follow' 옵션을 추가하여 구글 리다이렉트 응답을 유연하게 처리
+        const response = await fetch(`${GAS_URL}?bizNo=${encodeURIComponent(bizNo)}`, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP 에러! 상태코드: ${response.status}`);
+        }
+
         const data = await response.json();
 
         if (data.success) {
@@ -54,7 +63,7 @@
           document.getElementById('result').style.display = 'none';
         }
       } catch (error) {
-        alert('통신 오류가 발생했습니다.');
+        alert('통신 오류 상세 내용: ' + error.message);
         console.error(error);
       }
     }
